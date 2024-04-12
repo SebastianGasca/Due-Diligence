@@ -101,6 +101,8 @@ def web_scrapping(companies, now, one_day_ago):
     noticias = pd.DataFrame(news_data)
     noticias["Texto completo"] = noticias["Título"] + ". " + noticias["Contenido de la noticia"]
     
+    return noticias
+    
         
 def estandarizar_texto(texto):
     # Convertir a minúsculas
@@ -131,6 +133,7 @@ def palabras_en_noticias(noticias):
     noticias["Contador"], noticias["Palabras Encontradas"] = zip(*noticias["Texto estandarizado"].progress_apply(contar_palabras))
     
     print("CONTADOR DE PALABRAS COMPLETADO CON EXITO")
+    return noticias
     
 
 def resumir_noticias(noticias):
@@ -161,8 +164,11 @@ def resumir_noticias(noticias):
         # progress_bar.update(1)
     
     noticias["resumen"] = resumenes_noticias
+    
     print("RESUMEN DE NOTICIAS COMPLETADO CON EXITO")
     print("\n")
+    
+    return noticias
     
 
 def columna_semanas(noticias):
@@ -176,3 +182,4 @@ def columna_semanas(noticias):
             return df["año"] + "-" + df["semana"]
 
     noticias["semana_del_año"] =  noticias.apply(formato_semana, axis=1)
+    return noticias
