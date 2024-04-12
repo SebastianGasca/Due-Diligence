@@ -8,6 +8,7 @@ import re
 import unicodedata
 import ast
 from tqdm import tqdm
+from tqdm.notebook import tqdm_notebook
 from google.colab import files
 from collections import defaultdict
 import warnings
@@ -195,8 +196,9 @@ def evaluando_sentimientos(noticias):
     nlp_model = pipeline(model="lxyuan/distilbert-base-multilingual-cased-sentiments-student")
     sentimientos = []
 
-    progress_bar = tqdm(total=noticias.shape[0])
+    progress_bar = tqdm_notebook(total=noticias.shape[0])
     for index, noticia in enumerate(noticias.iterrows()):
+        progress_bar.update(1)
         try:
             corpus = noticia[1]['Contenido de la noticia'][:1000]
             sentiment = nlp_model(corpus)
@@ -206,7 +208,7 @@ def evaluando_sentimientos(noticias):
             sentimientos.append(None)
             progress_bar.update(1)
 
-        noticias["sentimientos"] = sentimientos
+    noticias["sentimientos"] = sentimientos
 
     print("ANALISIS DE SENTIMIENTOS COMPLETADO CON EXITO")
     print("\n")
@@ -298,7 +300,7 @@ def topicos_agrupados(lda_modelo):
 
 
 # DE DONDE SACO EL CORPUS ? 
-def asignando_topicos(noticias, documentos, df_agrupado, lda_modelo, corpus):
+def asignando_topicos(noticias, documentos, corpus, df_agrupado, lda_modelo):
     topicos_l = []
     topico_prob = []
 
@@ -323,7 +325,7 @@ def asignando_topicos(noticias, documentos, df_agrupado, lda_modelo, corpus):
     return noticias_con_lda
 
 
-def normalizando_palabras_topicos(practicas, df_agrupado, nlp):
+def normalizando_palabras_topicos(practicas, df_agrupado):
     print(f"NORMALIZANDO PALABRAS EN TOPICOS PROPIOS")
     nlp = spacy.load("en_core_web_sm")
     translator = Translator() # TRADUCIMOS AL INGLES
