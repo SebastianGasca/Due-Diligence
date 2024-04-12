@@ -128,7 +128,7 @@ def palabras_en_noticias(noticias):
     
     # Aplicar la función contar_palabras a cada elemento de la columna "Texto estandarizado"
     tqdm.pandas()
-    noticias["Contador"], noticias["Palabras Encontradas"] = zip(*noticias["Texto estandarizado"].progress_apply(contar_palabras))}
+    noticias["Contador"], noticias["Palabras Encontradas"] = zip(*noticias["Texto estandarizado"].progress_apply(contar_palabras))
     
     print("CONTADOR DE PALABRAS COMPLETADO CON EXITO")
     
