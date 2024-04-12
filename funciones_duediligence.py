@@ -26,6 +26,7 @@ from transformers import BertTokenizerFast, EncoderDecoderModel
 #LDA
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
 import nltk
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -53,6 +54,7 @@ def progress(value, max=100):
             {value}
         </progress>
     """.format(value=value, max=max))
+
 
 def web_scrapping(companies, now, one_day_ago):
     news_data = []
@@ -130,7 +132,9 @@ def palabras_en_noticias(noticias, palabras_clave):
     
     # Aplicar la función contar_palabras a cada elemento de la columna "Texto estandarizado"
     tqdm.pandas()
-    noticias["Contador"], noticias["Palabras Encontradas"] = zip(*noticias["Texto estandarizado"].progress_apply(lambda x: contar_palabras(x, palabras_clave)))
+    
+    c , p = zip(*noticias["Texto estandarizado"].progress_apply(lambda x: contar_palabras(x, palabras_clave)))
+    noticias["Contador"], noticias["Palabras Encontradas"] = c , p
     
     print("CONTADOR DE PALABRAS COMPLETADO CON EXITO")
     return noticias
@@ -157,11 +161,12 @@ def resumir_noticias(noticias):
     
     # progress_bar = tqdm(total=noticias.shape[0])
     resumenes_noticias = []
+    progress_bar = tqdm(total=noticias.shape[0])
     for index, noticia in enumerate(noticias.iterrows()):
         texto = noticia[1]["Texto completo"]
         resumen = generate_summary(texto)
         resumenes_noticias.append(resumen)
-        # progress_bar.update(1)
+        progress_bar.update(1)
     
     noticias["resumen"] = resumenes_noticias
     
@@ -183,3 +188,220 @@ def columna_semanas(noticias):
 
     noticias["semana_del_año"] =  noticias.apply(formato_semana, axis=1)
     return noticias
+
+
+def evaluando_sentimientos(noticias):
+    print("ANALISANDO SENTIMIENTO DE NOTICIAS CON -distilbert-")
+    nlp_model = pipeline(model="lxyuan/distilbert-base-multilingual-cased-sentiments-student")
+    sentimientos = []
+
+    progress_bar = tqdm(total=noticias.shape[0])
+    for index, noticia in enumerate(noticias.iterrows()):
+        try:
+            corpus = noticia[1]['Contenido de la noticia'][:1000]
+            sentiment = nlp_model(corpus)
+            sentimientos.append(sentiment[0]["label"])
+            progress_bar.update(1)
+        except:
+            sentimientos.append(None)
+            progress_bar.update(1)
+
+        noticias["sentimientos"] = sentimientos
+
+    print("ANALISIS DE SENTIMIENTOS COMPLETADO CON EXITO")
+    print("\n")
+    
+    return noticias
+
+
+def creando_lda(noticias): 
+    print("GENERANDO LDA")
+    
+    nlp = spacy.load("es_core_news_sm")
+    documentos = list(noticias.resumen)
+
+    def preprocess(text):
+        tokens = word_tokenize(text.lower())
+        tokens = [token for token in tokens if token.isalpha()]
+        tokens = [token for token in tokens if token not in stopwords.words('spanish')]
+        return tokens
+
+    # Preprocesamiento de los documentos
+    processed_docs = [preprocess(doc) for doc in documentos]
+    # Crear un diccionario a partir de los documentos
+    diccionario = corpora.Dictionary(processed_docs)
+    # Crear el corpus
+    corpus = [diccionario.doc2bow(documento) for documento in processed_docs]
+
+    print("ENCONTRANDO NUMERO DE CLUSTER OPTIMOS")
+    
+    coherence_scores = []
+    progress_bar = tqdm(total=len(range(2, 11)))
+    for num_topics in range(2, 11):  # Prueba de 2 a 10 tópicos
+        progress_bar.update(1)
+        lda_model = LdaModel(corpus, num_topics=num_topics, id2word=diccionario, passes=10)
+        coherence_model = CoherenceModel(model=lda_model, texts=processed_docs,
+                                        dictionary=diccionario, coherence='c_v')
+        coherence_score = coherence_model.get_coherence()
+        coherence_scores.append(coherence_score)
+
+    n_topicos = coherence_scores.index(max(coherence_scores)) + 2
+    
+    print(f"CREANDO LDA CON {n_topicos} TOPICOS")
+    lda_modelo = LdaModel(corpus, num_topics=n_topicos, id2word=diccionario, passes=15)
+    return documentos, corpus, lda_modelo
+
+
+def topicos_agrupados(lda_modelo):
+    # Listas para almacenar los datos
+    topicos = []
+    palabras = []
+    factores = []
+
+    # Expresión regular para encontrar palabras y factores
+    regex_palabra = re.compile(r'"\b(\w+)\b"')
+    regex_numero = re.compile(r'\d+\.\d+')
+
+    sentencias = lda_modelo.print_topics(num_words = 30); sentencias
+
+    # Extraer palabras y factores de cada sentencia
+    print(f"CREANDO DATAFRAME CON TOPCIOS_LDA ")
+    for i, sentencia in enumerate(sentencias):
+        sentencia = sentencia[1].split("+")
+        for s in sentencia:
+            s = s.replace(",", "")
+            palabra = regex_palabra.findall(s)
+            numero = regex_numero.findall(s)
+            try:
+                palabra = palabra[0]
+                numero = numero[0]
+            except:
+                palabra = None
+                numero = None
+            topicos.append(f"Topico: {i}")
+            palabras.append(palabra)
+            factores.append(numero)
+
+    # Crear DataFrame
+    df = pd.DataFrame({"Topico_LDA": topicos, "Palabra": palabras, "Factor": factores})
+
+    stopwords_es = spacy.lang.es.stop_words.STOP_WORDS
+    df_filtrado = df[(~df['Palabra'].isin(stopwords_es)) & (~df["Palabra"].isna())]
+
+    df_agrupado = (df_filtrado.groupby('Topico_LDA')
+                .apply(lambda x: pd.Series({'Palabra': list(x['Palabra']),
+                                            'Factor': list(x['Factor'])}))
+                .reset_index())
+    df_agrupado.rename(columns = {"Palabra": "Palabras_topico_lda"}, inplace = True)
+    
+    return df_agrupado
+
+
+# DE DONDE SACO EL CORPUS ? 
+def asignando_topicos(noticias, documentos, df_agrupado, lda_modelo, corpus):
+    topicos_l = []
+    topico_prob = []
+
+    print(f"ASIGNANDO TOPICOS_LDA AL DATAFRAME NOTICIAS")
+    for i, documento in enumerate(documentos):
+        temas = lda_modelo.get_document_topics(corpus[i])
+
+        maximo_valor = max(temas, key=lambda x: x[1])[1]
+        topico_probale = max(temas, key=lambda x: x[1])[0]
+
+        topicos_l.append(f"Topico: {topico_probale}")
+        topico_prob.append(maximo_valor)
+
+    noticias["Topico_LDA"] = topicos_l
+    noticias["Prob_Topico"] = topico_prob
+
+    noticias_con_lda = noticias.merge(df_agrupado, on = "Topico_LDA")
+
+    print("LDA COMPLETADO CON EXITO")
+    print("\n")
+    
+    return noticias_con_lda
+
+
+def normalizando_palabras_topicos(practicas, df_agrupado, nlp):
+    print(f"NORMALIZANDO PALABRAS EN TOPICOS PROPIOS")
+    nlp = spacy.load("en_core_web_sm")
+    translator = Translator() # TRADUCIMOS AL INGLES
+    stemmer = PorterStemmer()
+    l = []
+    progress_bar = tqdm(total=practicas.shape[0])
+
+    for index, row in practicas.iterrows():
+        progress_bar.update(1)
+        list_acciones = []
+        for palabra in row.acciones:
+            palabra_en = translator.translate(palabra, dest="en").text
+            palabra_stem = stemmer.stem(palabra_en)
+            palabra_lemma = nlp(palabra_en)[0].lemma_
+            try:
+                palabra_es = translator.translate(palabra_lemma, dest="es").text
+            except:
+                palabra_es = palabra
+                list_acciones.append(palabra_es.lower())
+
+    l.append( (row.practicas , list_acciones) )
+    topicos_propios = pd.DataFrame(l, columns = ["practicas", "acciones"])
+    
+    print("\n")
+    print(f"NORMALIZANDO PALABRAS EN TOPICOS LDA")  
+    translator = Translator()
+    stemmer = PorterStemmer()
+    l = []
+    progress_bar = tqdm(total=df_agrupado.shape[0])
+
+    for index, row in df_agrupado.iterrows():
+        progress_bar.update(1)
+        list_acciones = []
+        for palabra in row.Palabras_topico_lda:
+            try:
+                palabra_en = translator.translate(palabra, dest="en").text
+            except:
+                palabra_en = palabra
+                palabra_lemma = nlp(palabra_en)[0].lemma_
+
+            try:
+                palabra_es = translator.translate(palabra_lemma, dest="es").text
+            except:
+                palabra_es = palabra
+
+            list_acciones.append(palabra_es.lower())
+
+    l.append( (row.Topico_LDA , list_acciones) )
+    topicos_lda = pd.DataFrame(l, columns = ["Topico_LDA", "Palabras_topico_lda"])
+    
+    print("\n")
+    print("PALABRAS NORMALIZADAS COMPLETADO CON EXITO") 
+    
+    return topicos_propios, topicos_lda
+
+def dataframe(topicos_lda, topicos_propios, noticias_con_lda):
+    print("GENERNADO DATAFRAME FINAL")
+    dicc = defaultdict(list)
+    for name, row in topicos_lda.iterrows():
+      topico = row["Topico_LDA"]
+      palabras_topico = row["Palabras_topico_lda"]
+
+      for name_p, row_p in topicos_propios.iterrows():
+        pra = row_p["practicas"]
+        acc = row_p["acciones"]
+
+        if any(accion in palabras_topico for accion in acc):
+          dicc[topico].append(pra)
+
+    l_topic = []
+    for k,v in dicc.items():
+      l_topic.append( (k,v) )
+
+    topicos_match = pd.DataFrame(l_topic, columns = ["Topico_LDA", "Topico_propio"])
+
+    noticias_que_coinciden = noticias_con_lda[ noticias_con_lda["Topico_LDA"].isin(topicos_match.Topico_LDA) ]
+    noticias_que_coinciden = noticias_que_coinciden.merge(topicos_match, on = "Topico_LDA")
+    
+    print(f"DATAFRAME FINAL CONTIENE {noticias_que_coinciden.shape[0]} REGISTROS")
+    
+    return noticias_que_coinciden
