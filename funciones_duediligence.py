@@ -54,7 +54,6 @@ def progress(value, max=100):
         </progress>
     """.format(value=value, max=max))
 
-# ii = 0
 def web_scrapping(companies, now, one_day_ago):
     news_data = []
     # Iterar sobre cada empresa en la lista.
@@ -95,11 +94,85 @@ def web_scrapping(companies, now, one_day_ago):
                     # Capturar excepciones y mostrar un mensaje de error.
                     print(f"Error al procesar la noticia: {e}")
 
-    # ii = 15
-    # out.update(progress(ii, 100))
     print("WEB SCRAPPING COMPLETADO CON EXITO")
     print("\n")
 
     # Crear el DataFrame.
     noticias = pd.DataFrame(news_data)
     noticias["Texto completo"] = noticias["Título"] + ". " + noticias["Contenido de la noticia"]
+    
+        
+def estandarizar_texto(texto):
+    # Convertir a minúsculas
+    texto = texto.lower()
+    # Eliminar signos de puntuación utilizando expresiones regulares
+    texto = re.sub(r'[^\w\s]', '', texto)
+    # Eliminar tildes y diacríticos
+    texto = ''.join( (c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn') )
+    return texto
+
+
+def contar_palabras(documento):
+    contador = 0
+    palabras_encontradas = []
+    for palabra_clave in palabras_clave:
+        palabra_clave = estandarizar_texto(palabra_clave)
+        if palabra_clave in documento.split():
+            contador += 1
+            palabras_encontradas.append(palabra_clave)
+    return contador, palabras_encontradas
+
+
+def palabras_en_noticias(noticias):
+    noticias["Texto estandarizado"] = noticias["Texto completo"].apply(estandarizar_texto)
+    
+    # Aplicar la función contar_palabras a cada elemento de la columna "Texto estandarizado"
+    tqdm.pandas()
+    noticias["Contador"], noticias["Palabras Encontradas"] = zip(*noticias["Texto estandarizado"].progress_apply(contar_palabras))}
+    
+    print("CONTADOR DE PALABRAS COMPLETADO CON EXITO")
+    
+
+def resumir_noticias(noticias):
+    print("RESUMIENDO NOTICIAS CON -bert2bert-")
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    ckpt = 'mrm8488/bert2bert_shared-spanish-finetuned-summarization'
+    tokenizer = BertTokenizerFast.from_pretrained(ckpt)
+    model = EncoderDecoderModel.from_pretrained(ckpt).to(device)
+    
+    def generate_summary(text):
+        inputs = tokenizer([text],
+                           padding="max_length",
+                           truncation=True,
+                           max_length=512,
+                           return_tensors="pt")
+
+        input_ids = inputs.input_ids.to(device)
+        attention_mask = inputs.attention_mask.to(device)
+        output = model.generate(input_ids, attention_mask=attention_mask)
+        return tokenizer.decode(output[0], skip_special_tokens=True)
+    
+    # progress_bar = tqdm(total=noticias.shape[0])
+    resumenes_noticias = []
+    for index, noticia in enumerate(noticias.iterrows()):
+        texto = noticia[1]["Texto completo"]
+        resumen = generate_summary(texto)
+        resumenes_noticias.append(resumen)
+        # progress_bar.update(1)
+    
+    noticias["resumen"] = resumenes_noticias
+    print("RESUMEN DE NOTICIAS COMPLETADO CON EXITO")
+    print("\n")
+    
+
+def columna_semanas(noticias):
+    noticias["semana"] = (noticias["Fecha de la noticia"].dt.isocalendar().week).astype(str)
+    noticias["año"] = (noticias["Fecha de la noticia"].dt.year).astype(str)
+
+    def formato_semana(df):
+        if len(df["semana"]) == 1:
+            return df["año"] + "-" + "0" + df["semana"]
+        else:
+            return df["año"] + "-" + df["semana"]
+
+    noticias["semana_del_año"] =  noticias.apply(formato_semana, axis=1)
