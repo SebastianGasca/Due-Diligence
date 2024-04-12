@@ -1,0 +1,1 @@
+This repository contains a collection of Python functions for web scraping news articles, analyzing text data, summarizing articles, evaluating sentiment, and performing topic modeling using Latent Dirichlet Allocation (LDA). These tools can be useful for extracting insights from news articles, understanding public sentiment, and identifying trends in large corpora of news data.
