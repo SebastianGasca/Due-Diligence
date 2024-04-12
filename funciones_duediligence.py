@@ -137,7 +137,7 @@ def palabras_en_noticias(noticias, palabras_clave):
     c , p = zip(*noticias["Texto estandarizado"].progress_apply(lambda x: contar_palabras(x, palabras_clave)))
     noticias["Contador"], noticias["Palabras Encontradas"] = c , p
     
-    print("CONTADOR DE PALABRAS COMPLETADO CON EXITO")
+    print("\n CONTADOR DE PALABRAS COMPLETADO CON EXITO")
     return noticias
     
 
@@ -171,7 +171,7 @@ def resumir_noticias(noticias):
     
     noticias["resumen"] = resumenes_noticias
     
-    print("RESUMEN DE NOTICIAS COMPLETADO CON EXITO")
+    print("\n RESUMEN DE NOTICIAS COMPLETADO CON EXITO")
     print("\n")
     
     return noticias
@@ -249,7 +249,7 @@ def creando_lda(noticias):
 
     n_topicos = coherence_scores.index(max(coherence_scores)) + 2
     
-    print(f"CREANDO LDA CON {n_topicos} TOPICOS")
+    print(f"\n CREANDO LDA CON {n_topicos} TOPICOS")
     lda_modelo = LdaModel(corpus, num_topics=n_topicos, id2word=diccionario, passes=15)
     return documentos, corpus, lda_modelo
 
@@ -376,8 +376,7 @@ def normalizando_palabras_topicos(practicas, df_agrupado):
     l.append( (row.Topico_LDA , list_acciones) )
     topicos_lda = pd.DataFrame(l, columns = ["Topico_LDA", "Palabras_topico_lda"])
     
-    print("\n")
-    print("PALABRAS NORMALIZADAS COMPLETADO CON EXITO") 
+    print("\n PALABRAS NORMALIZADAS COMPLETADO CON EXITO") 
     
     return topicos_propios, topicos_lda
 
@@ -404,6 +403,6 @@ def noticias_match_topicos(topicos_lda, topicos_propios, noticias_con_lda):
     noticias_que_coinciden = noticias_con_lda[ noticias_con_lda["Topico_LDA"].isin(topicos_match.Topico_LDA) ]
     noticias_que_coinciden = noticias_que_coinciden.merge(topicos_match, on = "Topico_LDA")
     
-    print(f"DATAFRAME FINAL CONTIENE {noticias_que_coinciden.shape[0]} REGISTROS")
+    print(f"\n DATAFRAME FINAL CONTIENE {noticias_que_coinciden.shape[0]} REGISTROS")
     
     return noticias_que_coinciden
