@@ -114,7 +114,7 @@ def estandarizar_texto(texto):
     return texto
 
 
-def contar_palabras(documento):
+def contar_palabras(documento, palabras_clave):
     contador = 0
     palabras_encontradas = []
     for palabra_clave in palabras_clave:
@@ -125,12 +125,12 @@ def contar_palabras(documento):
     return contador, palabras_encontradas
 
 
-def palabras_en_noticias(noticias):
+def palabras_en_noticias(noticias, palabras_clave):
     noticias["Texto estandarizado"] = noticias["Texto completo"].apply(estandarizar_texto)
     
     # Aplicar la función contar_palabras a cada elemento de la columna "Texto estandarizado"
     tqdm.pandas()
-    noticias["Contador"], noticias["Palabras Encontradas"] = zip(*noticias["Texto estandarizado"].progress_apply(contar_palabras))
+    noticias["Contador"], noticias["Palabras Encontradas"] = zip(*noticias["Texto estandarizado"].progress_apply(lambda x: contar_palabras(x, palabras_clave)))
     
     print("CONTADOR DE PALABRAS COMPLETADO CON EXITO")
     return noticias
