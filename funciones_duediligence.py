@@ -379,7 +379,7 @@ def normalizando_palabras_topicos(practicas, df_agrupado, nlp):
     
     return topicos_propios, topicos_lda
 
-def dataframe(topicos_lda, topicos_propios, noticias_con_lda):
+def noticias_match_topicos(topicos_lda, topicos_propios, noticias_con_lda):
     print("GENERNADO DATAFRAME FINAL")
     dicc = defaultdict(list)
     for name, row in topicos_lda.iterrows():
