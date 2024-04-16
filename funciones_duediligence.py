@@ -6,6 +6,7 @@ import seaborn as sns
 
 import re
 import unicodedata
+from pprint import pprint
 import ast
 from tqdm import tqdm
 from tqdm.notebook import tqdm_notebook
@@ -35,11 +36,11 @@ nltk.download('punkt')
 import spacy
 from gensim import corpora
 from gensim.models import LdaModel
-from pprint import pprint
 from gensim.parsing.preprocessing import STOPWORDS
 from gensim.models.coherencemodel import CoherenceModel
 
 from googletrans import Translator
+
 
 #barra de carga
 from IPython.display import HTML, display
@@ -56,7 +57,46 @@ def progress(value, max=100):
         </progress>
     """.format(value=value, max=max))
 
+# FUNCIONES DE LIMPIEZA DE TEXTO Y CREACION DE COLUMNAS
+def estandarizar_texto(texto):
+    texto = texto.lower()     # Convertir a minúsculas
+    texto = re.sub(r'[^\w\s]', '', texto)     # Eliminar signos de puntuación utilizando expresiones regulares
+    texto = ''.join( (c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn') )     # Eliminar tildes y diacríticos
+    return texto
 
+
+def contar_palabras(documento, palabras_clave):
+    contador = 0
+    palabras_encontradas = []
+    for palabra_clave in palabras_clave:
+        palabra_clave = estandarizar_texto(palabra_clave)
+        if palabra_clave in documento.split():
+            contador += 1
+            palabras_encontradas.append(palabra_clave)
+    return contador, palabras_encontradas
+
+
+def columna_semanas(noticias):
+    noticias["semana"] = (noticias["Fecha de la noticia"].dt.isocalendar().week).astype(str)
+    noticias["año"] = (noticias["Fecha de la noticia"].dt.year).astype(str)
+
+    def formato_semana(df):
+        if len(df["semana"]) == 1:
+            return df["año"] + "-" + "0" + df["semana"]
+        else:
+            return df["año"] + "-" + df["semana"]
+
+    noticias["semana_del_año"] =  noticias.apply(formato_semana, axis=1)
+    return noticias
+
+def estandarizar_texto_portokens(text):
+    tokens = word_tokenize(text.lower())
+    tokens = [token for token in tokens if token.isalpha()]
+    tokens = [token for token in tokens if token not in stopwords.words('spanish')]
+    return tokens
+
+
+# FUNCIONES DE PROCESO
 def web_scrapping(companies, now, one_day_ago):
     news_data = []
     # Iterar sobre cada empresa en la lista.
@@ -72,10 +112,9 @@ def web_scrapping(companies, now, one_day_ago):
         news_feed = feedparser.parse(search_url)
 
         # Iterar sobre cada entrada en el feed.
-        for entry in tqdm(news_feed.entries):
+        for entry in tqdm_notebook(news_feed.entries):
             # Obtener la fecha de publicación de la noticia.
             published_date = datetime(*entry.published_parsed[:6])
-
 
             # Verificar si la fecha de publicación está dentro del último día.
             if published_date >= one_day_ago and published_date <= now:
@@ -106,34 +145,13 @@ def web_scrapping(companies, now, one_day_ago):
     
     return noticias
     
-        
-def estandarizar_texto(texto):
-    # Convertir a minúsculas
-    texto = texto.lower()
-    # Eliminar signos de puntuación utilizando expresiones regulares
-    texto = re.sub(r'[^\w\s]', '', texto)
-    # Eliminar tildes y diacríticos
-    texto = ''.join( (c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn') )
-    return texto
-
-
-def contar_palabras(documento, palabras_clave):
-    contador = 0
-    palabras_encontradas = []
-    for palabra_clave in palabras_clave:
-        palabra_clave = estandarizar_texto(palabra_clave)
-        if palabra_clave in documento.split():
-            contador += 1
-            palabras_encontradas.append(palabra_clave)
-    return contador, palabras_encontradas
 
 
 def palabras_en_noticias(noticias, palabras_clave):
+    tqdm.pandas()
     noticias["Texto estandarizado"] = noticias["Texto completo"].apply(estandarizar_texto)
     
     # Aplicar la función contar_palabras a cada elemento de la columna "Texto estandarizado"
-    tqdm.pandas()
-    
     c , p = zip(*noticias["Texto estandarizado"].progress_apply(lambda x: contar_palabras(x, palabras_clave)))
     noticias["Contador"], noticias["Palabras Encontradas"] = c , p
     
@@ -177,20 +195,6 @@ def resumir_noticias(noticias):
     return noticias
     
 
-def columna_semanas(noticias):
-    noticias["semana"] = (noticias["Fecha de la noticia"].dt.isocalendar().week).astype(str)
-    noticias["año"] = (noticias["Fecha de la noticia"].dt.year).astype(str)
-
-    def formato_semana(df):
-        if len(df["semana"]) == 1:
-            return df["año"] + "-" + "0" + df["semana"]
-        else:
-            return df["año"] + "-" + df["semana"]
-
-    noticias["semana_del_año"] =  noticias.apply(formato_semana, axis=1)
-    return noticias
-
-
 def evaluando_sentimientos(noticias):
     print("ANALISANDO SENTIMIENTO DE NOTICIAS CON -distilbert-")
     nlp_model = pipeline(model="lxyuan/distilbert-base-multilingual-cased-sentiments-student")
@@ -222,14 +226,14 @@ def creando_lda(noticias):
     nlp = spacy.load("es_core_news_sm")
     documentos = list(noticias.resumen)
 
-    def preprocess(text):
-        tokens = word_tokenize(text.lower())
-        tokens = [token for token in tokens if token.isalpha()]
-        tokens = [token for token in tokens if token not in stopwords.words('spanish')]
-        return tokens
+    # def preprocess(text):
+    #     tokens = word_tokenize(text.lower())
+    #     tokens = [token for token in tokens if token.isalpha()]
+    #     tokens = [token for token in tokens if token not in stopwords.words('spanish')]
+    #     return tokens
 
     # Preprocesamiento de los documentos
-    processed_docs = [preprocess(doc) for doc in documentos]
+    processed_docs = [estandarizar_texto_portokens(doc) for doc in documentos]
     # Crear un diccionario a partir de los documentos
     diccionario = corpora.Dictionary(processed_docs)
     # Crear el corpus
