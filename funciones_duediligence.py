@@ -153,7 +153,7 @@ def palabras_en_noticias(noticias, palabras_clave):
     
     # Aplicar la función contar_palabras a cada elemento de la columna "Texto estandarizado"
     c , p = zip(*noticias["Texto estandarizado"].progress_apply(lambda x: contar_palabras(x, palabras_clave)))
-    noticias["Contador"], noticias["Palabras Encontradas"] = c , p
+    noticias["N Palabras Encontradas"], noticias["Palabras Encontradas"] = c , p
     
     print("\n CONTADOR DE PALABRAS COMPLETADO CON EXITO")
     return noticias
@@ -224,13 +224,7 @@ def creando_lda(noticias):
     print("GENERANDO LDA")
     
     nlp = spacy.load("es_core_news_sm")
-    documentos = list(noticias.resumen)
-
-    # def preprocess(text):
-    #     tokens = word_tokenize(text.lower())
-    #     tokens = [token for token in tokens if token.isalpha()]
-    #     tokens = [token for token in tokens if token not in stopwords.words('spanish')]
-    #     return tokens
+    documentos = list(noticias["Texto estandarizado"])
 
     # Preprocesamiento de los documentos
     processed_docs = [estandarizar_texto_portokens(doc) for doc in documentos]
