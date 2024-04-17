@@ -144,7 +144,7 @@ def web_scrapping(companies, now, one_day_ago):
                     # Capturar excepciones y mostrar un mensaje de error.
                     print(f"Error al procesar la noticia: {e}")
 
-    print("WEB SCRAPPING COMPLETADO CON EXITO")
+    print("WEB SCRAPPING COMPLETADO CON ÉXITO")
     print("\n")
 
     # Crear el DataFrame.
@@ -181,7 +181,7 @@ def traducir_noticias(noticia, columna):
                 traducido.append(texto_traducido)
             
             except: 
-                print("NO SE PUDO TRADUCIR !")
+                print("ERROR AL TRADUCIR !")
                 traducido.append(None)
                 continue
     return traducido
@@ -194,7 +194,7 @@ def palabras_en_noticias(noticias, palabras_clave):
     c , p = zip(*noticias["Texto estandarizado"].progress_apply(lambda x: contar_palabras(x, palabras_clave)))
     noticias["N Palabras Encontradas"], noticias["Palabras Encontradas"] = c , p
     
-    print("\n CONTADOR DE PALABRAS COMPLETADO CON EXITO")
+    print("\n CONTADOR DE PALABRAS COMPLETADO CON ÉXITO")
     return noticias
     
 
@@ -228,14 +228,14 @@ def resumir_noticias_bert2bert(noticias):
     
     noticias["resumen"] = resumenes_noticias
     
-    print("\n RESUMEN DE NOTICIAS COMPLETADO CON EXITO")
+    print("\n RESUMEN DE NOTICIAS COMPLETADO CON ÉXITO")
     print("\n")
     
     return noticias
     
 
 def evaluando_sentimientos_distilbert(noticias):
-    print("ANALISANDO SENTIMIENTO DE NOTICIAS CON -distilbert-")
+    print("ANALIZANDO SENTIMIENTO DE NOTICIAS CON -distilbert-")
     nlp_model = pipeline(model="lxyuan/distilbert-base-multilingual-cased-sentiments-student")
     sentimientos = []
 
@@ -253,7 +253,7 @@ def evaluando_sentimientos_distilbert(noticias):
 
     noticias["sentimientos"] = sentimientos
 
-    print("ANALISIS DE SENTIMIENTOS COMPLETADO CON EXITO")
+    print("ANÁLISIS DE SENTIMIENTOS COMPLETADO CON ÉXITO")
     print("\n")
     
     return noticias
@@ -272,7 +272,7 @@ def creando_lda(noticias):
     # Crear el corpus
     corpus = [diccionario.doc2bow(documento) for documento in processed_docs]
 
-    print("ENCONTRANDO NUMERO DE CLUSTER OPTIMOS")
+    print("BUSCANDO NUMERO DE CLÚSTER ÓPTIMOS")
     
     coherence_scores = []
     progress_bar = tqdm(total=len(range(2, 11)))
@@ -286,7 +286,7 @@ def creando_lda(noticias):
 
     n_topicos = coherence_scores.index(max(coherence_scores)) + 2
     
-    print(f"\n CREANDO LDA CON {n_topicos} TOPICOS")
+    print(f"\n CREANDO LDA CON {n_topicos} TÓPICOS")
     lda_modelo = LdaModel(corpus, num_topics=n_topicos, id2word=diccionario, passes=15)
     return documentos, corpus, lda_modelo
 
@@ -304,7 +304,7 @@ def topicos_agrupados(lda_modelo):
     sentencias = lda_modelo.print_topics(num_words = 30); sentencias
 
     # Extraer palabras y factores de cada sentencia
-    print(f"CREANDO DATAFRAME CON TOPCIOS_LDA ")
+    print(f"CREANDO DATAFRAME CON TÓPICOS LDA ")
     for i, sentencia in enumerate(sentencias):
         sentencia = sentencia[1].split("+")
         for s in sentencia:
@@ -340,7 +340,7 @@ def asignando_topicos(noticias, documentos, corpus, df_agrupado, lda_modelo):
     topicos_l = []
     topico_prob = []
 
-    print(f"ASIGNANDO TOPICOS_LDA AL DATAFRAME NOTICIAS")
+    print(f"ASIGNANDO TÓPICOS LDA AL DATAFRAME NOTICIAS")
     for i, documento in enumerate(documentos):
         temas = lda_modelo.get_document_topics(corpus[i])
 
@@ -355,14 +355,14 @@ def asignando_topicos(noticias, documentos, corpus, df_agrupado, lda_modelo):
 
     noticias_con_lda = noticias.merge(df_agrupado, on = "Topico_LDA")
 
-    print("LDA COMPLETADO CON EXITO")
+    print("LDA COMPLETADO CON ÉXITO")
     print("\n")
     
     return noticias_con_lda
 
 
 def normalizando_palabras_topicos(practicas, df_agrupado):
-    print(f"NORMALIZANDO PALABRAS EN TOPICOS PROPIOS")
+    print(f"NORMALIZANDO PALABRAS EN TÓPICOS PROPIOS")
     if practicas.shape[0] != 0:
       nlp = spacy.load("en_core_web_sm")
       translator = Translator() # TRADUCIMOS AL INGLES
@@ -387,7 +387,7 @@ def normalizando_palabras_topicos(practicas, df_agrupado):
       topicos_propios = pd.DataFrame(l, columns = ["practicas", "acciones"])
     
     print("\n")
-    print(f"NORMALIZANDO PALABRAS EN TOPICOS LDA")  
+    print(f"NORMALIZANDO PALABRAS EN TÓPICOS LDA")  
     translator = Translator()
     stemmer = PorterStemmer()
     l = []
@@ -413,7 +413,7 @@ def normalizando_palabras_topicos(practicas, df_agrupado):
     l.append( (row.Topico_LDA , list_acciones) )
     topicos_lda = pd.DataFrame(l, columns = ["Topico_LDA", "Palabras_topico_lda"])
     
-    print("\n PALABRAS NORMALIZADAS COMPLETADO CON EXITO") 
+    print("\n PALABRAS NORMALIZADAS COMPLETADO CON ÉXITO") 
     
     return topicos_propios, topicos_lda
 
