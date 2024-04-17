@@ -1,3 +1,7 @@
+##
+# LIBRERAS
+##
+
 #Generales
 import pandas as pd
 import numpy as np
@@ -41,11 +45,15 @@ from gensim.models.coherencemodel import CoherenceModel
 
 from googletrans import Translator
 
-
 #barra de carga
 from IPython.display import HTML, display
 import time
 
+###
+# FUNCIONES
+###
+
+# FUNCIONES UX
 def progress(value, max=100):
     return HTML("""
         <progress
@@ -89,7 +97,7 @@ def columna_semanas(noticias):
     noticias["semana_del_año"] =  noticias.apply(formato_semana, axis=1)
     return noticias
 
-def estandarizar_texto_portokens(text):
+def estandarizar_texto_por_tokens(text):
     tokens = word_tokenize(text.lower())
     tokens = [token for token in tokens if token.isalpha()]
     tokens = [token for token in tokens if token not in stopwords.words('spanish')]
@@ -146,6 +154,37 @@ def web_scrapping(companies, now, one_day_ago):
     return noticias
     
 
+def traducir_noticias(noticia, columna):
+    traducido = []
+    for index, noticia in noticia[columna].items():
+        print(index)
+        translator = Translator()
+        try:
+            noticia = ' '.join(noticia.split())
+            # print(noticia)
+            texto_traducido = translator.translate(noticia, dest="en").text
+            traducido.append(texto_traducido)
+
+        except:    
+            try:
+                noticia = ' '.join(noticia.split())
+            
+                regex = r'\.(?:\s+|[^\d.])'
+                split_noticias = re.split(regex, noticia)
+            
+                l = []
+                for n in split_noticias:
+                    if n != "":
+                        t = translator.translate(n, dest="en").text
+                        l.append(t)
+                texto_traducido = ". ".join(l)
+                traducido.append(texto_traducido)
+            
+            except: 
+                print("NO SE PUDO TRADUCIR !")
+                traducido.append(None)
+                continue
+    return traducido
 
 def palabras_en_noticias(noticias, palabras_clave):
     tqdm.pandas()
@@ -159,7 +198,7 @@ def palabras_en_noticias(noticias, palabras_clave):
     return noticias
     
 
-def resumir_noticias(noticias):
+def resumir_noticias_bert2bert(noticias):
     print("RESUMIENDO NOTICIAS CON -bert2bert-")
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     ckpt = 'mrm8488/bert2bert_shared-spanish-finetuned-summarization'
@@ -195,7 +234,7 @@ def resumir_noticias(noticias):
     return noticias
     
 
-def evaluando_sentimientos(noticias):
+def evaluando_sentimientos_distilbert(noticias):
     print("ANALISANDO SENTIMIENTO DE NOTICIAS CON -distilbert-")
     nlp_model = pipeline(model="lxyuan/distilbert-base-multilingual-cased-sentiments-student")
     sentimientos = []
@@ -224,10 +263,10 @@ def creando_lda(noticias):
     print("GENERANDO LDA")
     
     nlp = spacy.load("es_core_news_sm")
-    documentos = list(noticias["Texto estandarizado"])
+    documentos = list(noticias["Texto completo"])
 
     # Preprocesamiento de los documentos
-    processed_docs = [estandarizar_texto_portokens(doc) for doc in documentos]
+    processed_docs = [estandarizar_texto_por_tokens(doc) for doc in documentos]
     # Crear un diccionario a partir de los documentos
     diccionario = corpora.Dictionary(processed_docs)
     # Crear el corpus
@@ -297,7 +336,6 @@ def topicos_agrupados(lda_modelo):
     return df_agrupado
 
 
-# DE DONDE SACO EL CORPUS ? 
 def asignando_topicos(noticias, documentos, corpus, df_agrupado, lda_modelo):
     topicos_l = []
     topico_prob = []
