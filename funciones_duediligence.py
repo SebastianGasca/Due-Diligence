@@ -363,27 +363,28 @@ def asignando_topicos(noticias, documentos, corpus, df_agrupado, lda_modelo):
 
 def normalizando_palabras_topicos(practicas, df_agrupado):
     print(f"NORMALIZANDO PALABRAS EN TOPICOS PROPIOS")
-    nlp = spacy.load("en_core_web_sm")
-    translator = Translator() # TRADUCIMOS AL INGLES
-    stemmer = PorterStemmer()
-    l = []
-    progress_bar = tqdm(total=practicas.shape[0])
+    if practicas.shape[0] != 0:
+      nlp = spacy.load("en_core_web_sm")
+      translator = Translator() # TRADUCIMOS AL INGLES
+      stemmer = PorterStemmer()
+      l = []
+      progress_bar = tqdm(total=practicas.shape[0])
 
-    for index, row in practicas.iterrows():
-        progress_bar.update(1)
-        list_acciones = []
-        for palabra in row.acciones:
-            palabra_en = translator.translate(palabra, dest="en").text
-            palabra_stem = stemmer.stem(palabra_en)
-            palabra_lemma = nlp(palabra_en)[0].lemma_
-            try:
-                palabra_es = translator.translate(palabra_lemma, dest="es").text
-            except:
-                palabra_es = palabra
-                list_acciones.append(palabra_es.lower())
+      for index, row in practicas.iterrows():
+          progress_bar.update(1)
+          list_acciones = []
+          for palabra in row.acciones:
+              palabra_en = translator.translate(palabra, dest="en").text
+              palabra_stem = stemmer.stem(palabra_en)
+              palabra_lemma = nlp(palabra_en)[0].lemma_
+              try:
+                  palabra_es = translator.translate(palabra_lemma, dest="es").text
+              except:
+                  palabra_es = palabra
+                  list_acciones.append(palabra_es.lower())
 
-    l.append( (row.practicas , list_acciones) )
-    topicos_propios = pd.DataFrame(l, columns = ["practicas", "acciones"])
+      l.append( (row.practicas , list_acciones) )
+      topicos_propios = pd.DataFrame(l, columns = ["practicas", "acciones"])
     
     print("\n")
     print(f"NORMALIZANDO PALABRAS EN TOPICOS LDA")  
